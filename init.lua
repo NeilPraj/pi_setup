@@ -72,34 +72,182 @@ require("lazy").setup({
   ---------------------------------------------------------
   -- Heirline (statusline)
   ---------------------------------------------------------
-  {
-    "rebelot/heirline.nvim",
-    lazy = false,
-    config = function()
-      local heirline = require("heirline")
+ {
+  "rebelot/heirline.nvim",
+  lazy = false,
+  config = function()
+    local conditions = require("heirline.conditions")
+    local utils = require("heirline.utils")
 
-      local StatusLine = {
-        hl = function()
-          return {
-            fg = vim.api.nvim_get_hl_by_name("StatusLine", true).foreground,
-            bg = vim.api.nvim_get_hl_by_name("StatusLine", true).background,
-          }
-        end,
-        {
-          provider = function()
-            return " " .. vim.fn.mode():upper() .. " "
-          end,
-        },
-        { provider = " %f " },
-        { provider = "%=" },
-        { provider = " %l:%c " },
-      }
+    ------------------------------------------------------------
+    -- Colors (match tokyonight)
+    ------------------------------------------------------------
+    local colors = {
+      bg       = utils.get_highlight("StatusLine").bg,
+      fg       = utils.get_highlight("StatusLine").fg,
+      red      = utils.get_highlight("DiagnosticError").fg,
+      yellow   = utils.get_highlight("DiagnosticWarn").fg,
+      blue     = utils.get_highlight("Function").fg,
+      green    = utils.get_highlight("String").fg,
+      magenta  = utils.get_highlight("Statement").fg,
+      cyan     = utils.get_highlight("Type").fg,
+    }
 
-      heirline.setup({ statusline = StatusLine })
-    end,
-  },
+    ------------------------------------------------------------
+    -- Helper: colored text
+    ------------------------------------------------------------
+    local function hl(str, group)
+      return "%#" .. group .. "#" .. str .. "%*"
+    end
 
-  ---------------------------------------------------------
+    ------------------------------------------------------------
+    -- MODE COMPONENT
+    ------------------------------------------------------------
+    local ViMode = {
+      init = function(self)
+        self.mode = vim.fn.mode(1)
+      end,
+      provider = function(self)
+        local mode_names = {
+          n = "NORMAL", no = "N·OP", v = "VISUAL", V = "V·LINE",
+          ["\22"] = "V·BLK", i = "INSERT", R = "REPLACE",
+          c = "COMMAND", s = "SELECT", S = "S·LINE", t = "TERMINAL",
+        }
+        local text = " " .. (mode_names[self.mode] or self.mode) .. " "
+        return text
+      end,
+      hl = function(self)
+        return {
+          fg = colors.bg,
+          bg = ({
+            n = colors.blue,
+            i = colors.green,
+            v = colors.magenta,
+            V = colors.magenta,
+            ["\22"] = colors.magenta,
+            R = colors.red,
+            c = colors.yellow,
+            t = colors.cyan,
+          })[self.mode] or colors.blue,
+          bold = true,
+        }
+      end,
+    }
+
+    ------------------------------------------------------------
+    -- GIT BRANCH
+    ------------------------------------------------------------
+    local Git = {
+      condition = conditions.is_git_repo,
+      init = function(self)
+        self.status = vim.b.gitsigns_status_dict
+      end,
+      provider = function(self)
+        return "   " .. (self.status.head or "") .. " "
+      end,
+      hl = { fg = colors.yellow },
+    }
+
+    ------------------------------------------------------------
+    -- DIFF INFO (added/removed/changed)
+    ------------------------------------------------------------
+    local GitDiff = {
+      condition = conditions.is_git_repo,
+      provider = function()
+        local added   = vim.b.gitsigns_status_dict.added or 0
+        local removed = vim.b.gitsigns_status_dict.removed or 0
+        local changed = vim.b.gitsigns_status_dict.changed or 0
+        return string.format(" +%d ~%d -%d ", added, changed, removed)
+      end,
+      hl = { fg = colors.cyan },
+    }
+
+    ------------------------------------------------------------
+    -- FILE INFO (name + flags)
+    ------------------------------------------------------------
+    local File = {
+      provider = function()
+        local name = vim.fn.expand("%:t")
+        if name == "" then name = "[No Name]" end
+        return " " .. name .. " "
+      end,
+      hl = { fg = colors.fg },
+    }
+
+    ------------------------------------------------------------
+    -- DIAGNOSTICS BLOCK
+    ------------------------------------------------------------
+    local Diagnostics = {
+      condition = conditions.has_diagnostics,
+      provider = function()
+        local e = #vim.diagnostic.get(0, { severity = vim.diagnostic.severity.ERROR })
+        local w = #vim.diagnostic.get(0, { severity = vim.diagnostic.severity.WARN })
+        local s = ""
+        if e > 0 then s = s .. "  " .. e end
+        if w > 0 then s = s .. "  " .. w end
+        return s .. " "
+      end,
+      hl = function()
+        return {
+          fg = colors.red,
+        }
+      end,
+    }
+
+    ------------------------------------------------------------
+    -- LSP ACTIVE?
+    ------------------------------------------------------------
+    local LSP = {
+      condition = conditions.lsp_attached,
+      provider = function()
+        return "   LSP "
+      end,
+      hl = { fg = colors.green },
+    }
+
+    ------------------------------------------------------------
+    -- RULER (line:col)
+    ------------------------------------------------------------
+    local Ruler = {
+      provider = function()
+        return string.format(" %d:%d ", unpack(vim.api.nvim_win_get_cursor(0)))
+      end,
+      hl = { fg = colors.blue },
+    }
+
+    ------------------------------------------------------------
+    -- POSITION PERCENTAGE
+    ------------------------------------------------------------
+    local Scroll = {
+      provider = function()
+        local curr = vim.fn.line(".")
+        local total = vim.fn.line("$")
+        if curr == 1 then return " Top " end
+        if curr == total then return " Bot " end
+        return string.format(" %2d%%%% ", math.floor(curr / total * 100))
+      end,
+      hl = { fg = colors.magenta },
+    }
+
+    ------------------------------------------------------------
+    -- FINAL STATUSLINE LAYOUT
+    ------------------------------------------------------------
+    local StatusLine = {
+      ViMode,
+      Git,
+      GitDiff,
+      File,
+      Diagnostics,
+      LSP,
+      { provider = "%=" }, -- Right align
+      Scroll,
+      Ruler,
+    }
+
+    require("heirline").setup({ statusline = StatusLine })
+  end,
+},
+ ---------------------------------------------------------
   -- Treesitter
   ---------------------------------------------------------
   {
