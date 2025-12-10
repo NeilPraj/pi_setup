@@ -1,0 +1,37 @@
+HOW TO START PI NVIM SESSION WITH WINDOWS CLIPBOARD
+
+1) Start lemonade server on Windows
+
+   - Open Windows Terminal / PowerShell
+   - Go to the folder with lemonade.exe:
+       cd C:\Users\neilp\bin
+   - Run:
+       .\lemonade.exe server
+
+   Leave this window open.
+
+2) SSH into the Pi with remote port forward
+
+   - Open a NEW Windows Terminal / PowerShell window
+   - Run:
+       ssh -R 2489:localhost:2489 npi@192.168.4.93
+
+   This forwards Pi's localhost:2489 -> Windows localhost:2489 (lemonade).
+
+3) Use Neovim on the Pi
+
+   - On the Pi (inside that SSH session):
+       nvim somefile.cpp
+
+   - Copy from Pi -> Windows:
+       yy            (normal yank; clipboard is wired to lemonade)
+       (then Ctrl+V on Windows)
+
+   - Paste from Windows -> Pi:
+       copy text on Windows (Ctrl+C)
+       in nvim: p           (or "+p)
+
+If clipboard breaks, check:
+   - lemonade server is running on Windows
+   - you used ssh -R 2489:localhost:2489 ...
+   - 'lemonade' works on the Pi:  echo hi | lemonade copy
