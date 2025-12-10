@@ -1,3 +1,4 @@
+
 -----------------------------------------------------------
 -- Basic options
 -----------------------------------------------------------
@@ -9,14 +10,18 @@ vim.opt.expandtab = true
 vim.opt.smartindent = true
 vim.opt.termguicolors = true
 
--- System clipboard over lemonade
+-- Useful for visually showing tabs
+vim.opt.list = true
+vim.opt.listchars = { tab = "▸ ", trail = "·" }
+
+-- System clipboard via lemonade
 vim.opt.clipboard = "unnamedplus"
 
--- jj to exit
+-- jj to exit insert mode
 vim.keymap.set("i", "jj", "<Esc>", { noremap = true, silent = true })
 
 -----------------------------------------------------------
--- Clipboard (lemonade)
+-- Clipboard (lemonade over SSH)
 -----------------------------------------------------------
 vim.g.clipboard = {
   name = "lemonade",
@@ -81,7 +86,9 @@ require("lazy").setup({
           }
         end,
         {
-          provider = function() return " " .. vim.fn.mode():upper() .. " " end,
+          provider = function()
+            return " " .. vim.fn.mode():upper() .. " "
+          end,
         },
         { provider = " %f " },
         { provider = "%=" },
@@ -101,7 +108,7 @@ require("lazy").setup({
     config = function()
       require("nvim-treesitter.configs").setup({
         ensure_installed = {
-          "lua", "c", "cpp", "bash", "python", "vim", "vimdoc"
+          "lua", "c", "cpp", "bash", "python", "vim", "vimdoc",
         },
         highlight = { enable = true },
         indent = { enable = true },
@@ -120,6 +127,72 @@ require("lazy").setup({
   },
 
   ---------------------------------------------------------
+  -- Indent guides (indent-blankline v3)
+  ---------------------------------------------------------
+  {
+    "lukas-reineke/indent-blankline.nvim",
+    main = "ibl",
+    config = function()
+      require("ibl").setup({
+        indent = { char = "│" },
+        scope = { enabled = true },
+      })
+    end,
+  },
+
+  ---------------------------------------------------------
+  -- Completion: nvim-cmp + LuaSnip + sources
+  ---------------------------------------------------------
+  {
+    "hrsh7th/nvim-cmp",
+    event = "InsertEnter",
+    dependencies = {
+      "L3MON4D3/LuaSnip",
+      "saadparwaiz1/cmp_luasnip",
+      "hrsh7th/cmp-buffer",
+      "hrsh7th/cmp-path",
+    },
+    config = function()
+      local cmp = require("cmp")
+      local luasnip = require("luasnip")
+
+      cmp.setup({
+        snippet = {
+          expand = function(args)
+            luasnip.lsp_expand(args.body)
+          end,
+        },
+        mapping = cmp.mapping.preset.insert({
+          ["<Tab>"] = function(fallback)
+            if cmp.visible() then
+              cmp.select_next_item()
+            elseif luasnip.expand_or_jumpable() then
+              luasnip.expand_or_jump()
+            else
+              fallback()
+            end
+          end,
+          ["<S-Tab>"] = function(fallback)
+            if cmp.visible() then
+              cmp.select_prev_item()
+            elseif luasnip.jumpable(-1) then
+              luasnip.jump(-1)
+            else
+              fallback()
+            end
+          end,
+          ["<CR>"] = cmp.mapping.confirm({ select = true }),
+        }),
+        sources = cmp.config.sources({
+          { name = "luasnip" },
+          { name = "buffer" },
+          { name = "path" },
+        }),
+      })
+    end,
+  },
+
+  ---------------------------------------------------------
   -- LaTeX: VimTeX
   ---------------------------------------------------------
   {
@@ -132,5 +205,4 @@ require("lazy").setup({
   },
 
 })
-
 
