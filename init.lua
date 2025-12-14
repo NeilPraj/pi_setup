@@ -252,19 +252,34 @@ require("lazy").setup({
  ---------------------------------------------------------
   -- Treesitter
   ---------------------------------------------------------
-  {
-    "nvim-treesitter/nvim-treesitter",
-    build = ":TSUpdate",
-    config = function()
-      require("nvim-treesitter.configs").setup({
-        ensure_installed = {
-          "lua", "c", "cpp", "bash", "python", "vim", "vimdoc",
-        },
-        highlight = { enable = true },
-        indent = { enable = true },
-      })
-    end,
-  },
+{
+  "nvim-treesitter/nvim-treesitter",
+  lazy = false,
+  config = function()
+    local ts = require("nvim-treesitter")
+
+    -- Install parsers you care about (no-op if already installed)
+    ts.install({
+      "lua", "vim", "vimdoc",
+      "c", "cpp",
+      "bash", "python",
+      "query",
+    }, { summary = false }):wait(30000)
+
+    -- On file open: ensure parser exists + start highlighting
+    vim.api.nvim_create_autocmd("FileType", {
+      group = vim.api.nvim_create_augroup("np_treesitter", { clear = true }),
+      pattern = { "*" },
+      callback = function(ev)
+        local lang = ev.match
+        local ok, task = pcall(ts.install, { lang }, { summary = false })
+        if ok and task then task:wait(10000) end
+        pcall(vim.treesitter.start, ev.buf, lang)
+      end,
+    })
+  end,
+},
+
 
   ---------------------------------------------------------
   -- Autopairs
